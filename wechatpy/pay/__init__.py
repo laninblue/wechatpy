@@ -11,7 +11,7 @@ from optionaldict import optionaldict
 from wechatpy.utils import random_string
 from wechatpy.exceptions import WeChatPayException, InvalidSignatureException
 from wechatpy.pay.utils import (
-    calculate_signature, _check_signature, dict_to_xml
+    calculate_signature, calculate_signature_hmac, _check_signature, dict_to_xml
 )
 from wechatpy.pay.base import BaseWeChatPayAPI
 from wechatpy.pay import api
@@ -28,7 +28,8 @@ class WeChatPay(object):
     微信支付接口
 
     :param appid: 微信公众号 appid
-    :param api_key: 商户 key
+    :param sub_appid: 当前调起支付的小程序APPID
+    :param api_key: 商户 key,不要在这里使用小程序的密钥
     :param mch_id: 商户号
     :param sub_mch_id: 可选，子商户号，受理模式下必填
     :param mch_cert: 必填，商户证书路径
@@ -36,7 +37,6 @@ class WeChatPay(object):
     :param timeout: 可选，请求超时时间，单位秒，默认无超时设置
     :param sandbox: 可选，是否使用测试环境，默认为 False
     """
-    _http = requests.Session()
 
     redpack = api.WeChatRedpack()
     """红包接口"""
@@ -69,8 +69,9 @@ class WeChatPay(object):
         return self
 
     def __init__(self, appid, api_key, mch_id, sub_mch_id=None,
-                 mch_cert=None, mch_key=None, timeout=None, sandbox=False):
+                 mch_cert=None, mch_key=None, timeout=None, sandbox=False, sub_appid=None):
         self.appid = appid
+        self.sub_appid = sub_appid
         self.api_key = api_key
         self.mch_id = mch_id
         self.sub_mch_id = sub_mch_id
@@ -78,9 +79,10 @@ class WeChatPay(object):
         self.mch_key = mch_key
         self.timeout = timeout
         self.sandbox = sandbox
-        self.sandbox_api_key = None
+        self._sandbox_api_key = None
+        self._http = requests.Session()
 
-    def _fetch_sanbox_api_key(self):
+    def _fetch_sandbox_api_key(self):
         nonce_str = random_string(32)
         sign = calculate_signature({'mch_id': self.mch_id, 'nonce_str': nonce_str}, self.api_key)
         payload = dict_to_xml({
@@ -112,10 +114,11 @@ class WeChatPay(object):
             data.setdefault('sub_mch_id', self.sub_mch_id)
             data.setdefault('nonce_str', random_string(32))
             data = optionaldict(data)
-            if self.sandbox and self.sandbox_api_key is None:
-                self.sandbox_api_key = self._fetch_sanbox_api_key()
 
-            sign = calculate_signature(data, self.sandbox_api_key if self.sandbox else self.api_key)
+            if data.get('sign_type', 'MD5') == 'HMAC-SHA256':
+                sign = calculate_signature_hmac(data, self.sandbox_api_key if self.sandbox else self.api_key)
+            else:
+                sign = calculate_signature(data, self.sandbox_api_key if self.sandbox else self.api_key)
             body = dict_to_xml(data, sign)
             body = body.encode('utf-8')
             kwargs['data'] = body
@@ -125,6 +128,7 @@ class WeChatPay(object):
             kwargs['cert'] = (self.mch_cert, self.mch_key)
 
         kwargs['timeout'] = kwargs.get('timeout', self.timeout)
+        logger.debug('Request to WeChat API: %s %s\n%s', method, url, kwargs)
         res = self._http.request(
             method=method,
             url=url,
@@ -145,6 +149,7 @@ class WeChatPay(object):
     def _handle_result(self, res):
         res.encoding = 'utf-8'
         xml = res.text
+        logger.debug('Response from WeChat API \n %s', xml)
         try:
             data = xmltodict.parse(xml)['xml']
         except (xmltodict.ParsingInterrupted, ExpatError):
@@ -209,3 +214,10 @@ class WeChatPay(object):
                 data[key] = int(data[key])
         data['sign'] = sign
         return data
+
+    @property
+    def sandbox_api_key(self):
+        if self.sandbox and self._sandbox_api_key is None:
+            self._sandbox_api_key = self._fetch_sandbox_api_key()
+
+        return self._sandbox_api_key

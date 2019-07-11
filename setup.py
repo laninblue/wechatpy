@@ -35,10 +35,7 @@ class PyTest(TestCommand):
 cmdclass = {}
 cmdclass['test'] = PyTest
 
-readme = 'README.md'
-if os.path.exists('README.rst'):
-    readme = 'README.rst'
-with open(readme, 'rb') as f:
+with open('README.md', 'rb') as f:
     long_description = f.read().decode('utf-8')
 
 with open('requirements.txt') as f:
@@ -46,14 +43,15 @@ with open('requirements.txt') as f:
 
 setup(
     name='wechatpy',
-    version='1.6.1',
+    version='1.8.3',
     author='messense',
     author_email='messense@icloud.com',
     url='https://github.com/jxtech/wechatpy',
-    packages=find_packages(),
+    packages=find_packages(exclude=('tests', 'tests.*')),
     keywords='WeChat, weixin, SDK',
     description='WeChat SDK for Python',
     long_description=long_description,
+    long_description_content_type='text/markdown',
     install_requires=requirements,
     include_package_data=True,
     tests_require=[
@@ -72,9 +70,9 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Intended Audience :: Developers',
@@ -84,6 +82,6 @@ setup(
     ],
     extras_require={
         'cryptography': ['cryptography'],
-        'pycrypto': ['pycrypto'],
+        'pycrypto': ['pycryptodome'],
     }
 )

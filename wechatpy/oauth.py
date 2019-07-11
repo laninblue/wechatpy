@@ -24,8 +24,6 @@ class WeChatOAuth(object):
     https://open.weixin.qq.com/cgi-bin/showdocument?action=dir_list&t=resource/res_list&verify=1&id=open1419316505
     """
 
-    _http = requests.Session()
-
     API_BASE_URL = 'https://api.weixin.qq.com/'
     OAUTH_BASE_URL = 'https://open.weixin.qq.com/connect/'
 
@@ -43,6 +41,7 @@ class WeChatOAuth(object):
         self.redirect_uri = redirect_uri
         self.scope = scope
         self.state = state
+        self._http = requests.Session()
 
     def _request(self, method, url_or_endpoint, **kwargs):
         if not url_or_endpoint.startswith(('http://', 'https://')):
@@ -101,7 +100,7 @@ class WeChatOAuth(object):
 
         :return: URL 地址
         """
-        redirect_uri = quote(self.redirect_uri, safe='')
+        redirect_uri = quote(self.redirect_uri, safe=b'')
         url_list = [
             self.OAUTH_BASE_URL,
             'oauth2/authorize?appid=',
@@ -122,7 +121,7 @@ class WeChatOAuth(object):
 
         :return: URL 地址
         """
-        redirect_uri = quote(self.redirect_uri, safe='')
+        redirect_uri = quote(self.redirect_uri, safe=b'')
         url_list = [
             self.OAUTH_BASE_URL,
             'qrconnect?appid=',
